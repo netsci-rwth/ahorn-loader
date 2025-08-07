@@ -4,6 +4,13 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
+
+__all__ = [
+    "BaseRule",
+    "FileNameRule",
+    "NetworkLevelMetadataRule",
+]
 
 
 class BaseRule(ABC):
@@ -11,9 +18,8 @@ class BaseRule(ABC):
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-
     @abstractmethod
-    def validate(self) -> bool:
+    def validate(self, **kwargs: Any) -> bool:
         """Docstring für validate."""
         self.logger.debug("Start validation.")
 

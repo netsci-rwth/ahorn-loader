@@ -1,12 +1,11 @@
 """Entry point for the ``ahorn-loader`` command-line application."""
 
-import gzip
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from .validator.rules import FileNameRule, NetworkLevelMetadataRule
+from .validator import Validator
 
 app = typer.Typer()
 
@@ -38,28 +37,10 @@ def validate(
     path : Path
         The path to the dataset file to validate.
     """
-    rules = [
-        FileNameRule(),
-        NetworkLevelMetadataRule(),
-    ]
-
-    content = None
-    for rule in rules:
-        if "file_path" in rule.validate.__code__.co_varnames:
-            rule.validate(file_path=path)
-        elif "content" in rule.validate.__code__.co_varnames:
-            # load the content of the file the first time it is needed
-            if content is None:
-                if path.suffix == ".gz":
-                    with gzip.open(path, "rt") as f:
-                        content = f.readlines()
-                else:
-                    with path.open() as f:
-                        content = f.readlines()
-            rule.validate(content=content)
-        else:
-            # If the rule does not take any parameters, we call it directly
-            rule.validate()
+    validator = Validator()
+    if not validator.validate(path):
+        typer.echo("Validation failed.")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
