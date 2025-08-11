@@ -1,0 +1,26 @@
+name: Testing
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  mypy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run mypy
+        run: uv run mypy src

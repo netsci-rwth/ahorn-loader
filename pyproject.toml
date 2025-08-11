@@ -20,8 +20,15 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "mypy>=1.17.1",
     "ruff>=0.12.7",
 ]
+
+[tool.mypy]
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_ignores = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -71,6 +78,9 @@ ignore = [
     "COM812",  # trailing commas; conflict with `ruff format`
     "ISC001",  # implicitly single-line str concat; conflict with `ruff format`
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F403"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

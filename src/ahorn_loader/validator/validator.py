@@ -3,7 +3,7 @@
 import gzip
 from pathlib import Path
 
-from .rules import BaseRule, FileNameRule, NetworkLevelMetadataRule
+from .rules import DatasetRule, FileNameRule, NetworkLevelMetadataRule, PreFlightRule
 
 __all__ = ["Validator"]
 
@@ -11,9 +11,15 @@ __all__ = ["Validator"]
 class Validator:
     """Validator class to manage validation rules."""
 
+    pre_flight_rules: list[PreFlightRule]
+    dataset_rules: list[DatasetRule]
+
     def __init__(self) -> None:
-        self.rules: list[BaseRule] = [
+        self.pre_flight_rules = [
             FileNameRule(),
+        ]
+
+        self.dataset_rules = [
             NetworkLevelMetadataRule(),
         ]
 
@@ -33,26 +39,16 @@ class Validator:
         if isinstance(dataset_path, str):
             dataset_path = Path(dataset_path)
 
-        content: list[str] | None = None
+        if not all(
+            rule.validate(file_path=dataset_path) for rule in self.pre_flight_rules
+        ):
+            return False
 
-        for rule in self.rules:
-            if "file_path" in rule.validate.__code__.co_varnames:
-                if not rule.validate(file_path=dataset_path):
-                    return False
-            elif "content" in rule.validate.__code__.co_varnames:
-                # load the content of the file the first time it is needed
-                if content is None:
-                    if dataset_path.suffix == ".gz":
-                        with gzip.open(dataset_path, "rt") as f:
-                            content = f.readlines()
-                    else:
-                        with dataset_path.open() as f:
-                            content = f.readlines()
-                if not rule.validate(content=content):
-                    return False
-            else:
-                # If the rule does not take any parameters, we call it directly
-                if not rule.validate():
-                    return False
+        if dataset_path.suffix == ".gz":
+            with gzip.open(dataset_path, "rt") as f:
+                content = f.readlines()
+        else:
+            with dataset_path.open() as f:
+                content = f.readlines()
 
-        return True
+        return all(rule.validate(content=content) for rule in self.dataset_rules)

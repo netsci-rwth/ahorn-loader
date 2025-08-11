@@ -4,27 +4,62 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
 
 __all__ = [
-    "BaseRule",
+    "DatasetRule",
     "FileNameRule",
     "NetworkLevelMetadataRule",
+    "PreFlightRule",
 ]
 
 
-class BaseRule(ABC):
-    """Base class for validation rules."""
+class PreFlightRule(ABC):
+    """Base class for validation rules that run before the dataset file is loaded."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
+
     @abstractmethod
-    def validate(self, **kwargs: Any) -> bool:
-        """Docstring für validate."""
-        self.logger.debug("Start validation.")
+    def validate(self, file_path: Path) -> bool:
+        """
+        Validate the dataset before loading it.
+
+        Parameters
+        ----------
+        file_path : pathlib.Path
+            The path of the file to validate.
+
+        Returns
+        -------
+        bool
+            True if the dataset is valid, False otherwise.
+        """
 
 
-class FileNameRule(BaseRule):
+class DatasetRule(ABC):
+    """Base class for validation rules that validates the dataset content."""
+
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    @abstractmethod
+    def validate(self, content: list[str]) -> bool:
+        """
+        Validate the dataset content.
+
+        Parameters
+        ----------
+        content : list[str]
+            The content of the dataset file to validate.
+
+        Returns
+        -------
+        bool
+            True if the dataset content is valid, False otherwise.
+        """
+
+
+class FileNameRule(PreFlightRule):
     """Rule to validate file names."""
 
     def validate(self, file_path: Path) -> bool:
@@ -51,7 +86,7 @@ class FileNameRule(BaseRule):
         return True
 
 
-class NetworkLevelMetadataRule(BaseRule):
+class NetworkLevelMetadataRule(DatasetRule):
     """Rule to validate network-level metadata."""
 
     def validate(self, content: list[str]) -> bool:
@@ -74,7 +109,7 @@ class NetworkLevelMetadataRule(BaseRule):
             self.logger.error("First line of the dataset must be valid JSON metadata.")
             return False
         self.logger.debug(
-            "Parsed network-level metadata successfully.", metadata=metadata
+            "Parsed network-level metadata successfully.", extra={"metadata": metadata}
         )
 
         if "_format_version" not in metadata:
