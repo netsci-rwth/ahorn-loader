@@ -7,7 +7,7 @@ import typer
 from rich import print as rich_print
 from rich.table import Table
 
-from .api import load_datasets_data
+from .api import download_dataset, load_datasets_data
 from .validator import Validator
 
 app = typer.Typer()
@@ -38,6 +38,9 @@ def ls() -> None:
 @app.command()
 def download(
     name: Annotated[str, typer.Argument(help="The name of the dataset to download.")],
+    folder: Annotated[
+        Path, typer.Argument(help="Folder where the dataset should be saved.")
+    ] = Path(),
 ) -> None:
     """Download the specified dataset from AHORN.
 
@@ -45,8 +48,11 @@ def download(
     ----------
     name : str
         The name of the dataset to download.
+    folder : Path
+        The folder where the dataset should be saved. Defaults to the current directory.
     """
-    raise NotImplementedError("Download logic is not implemented yet.")
+    download_dataset(name, folder, cache_lifetime=3600)
+    typer.echo(f"Downloaded dataset to {folder}")
 
 
 @app.command()
