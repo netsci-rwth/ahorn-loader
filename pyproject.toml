@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "requests>=2.32.4",
     "typer>=0.16.0",
 ]
 
@@ -22,6 +23,7 @@ build-backend = "uv_build"
 dev = [
     "mypy>=1.17.1",
     "ruff>=0.12.7",
+    "types-requests>=2.32.4",
 ]
 
 [tool.mypy]

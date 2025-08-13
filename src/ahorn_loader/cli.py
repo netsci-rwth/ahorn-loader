@@ -4,10 +4,35 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich import print as rich_print
+from rich.table import Table
 
+from .api import load_datasets_data
 from .validator import Validator
 
 app = typer.Typer()
+
+
+@app.command()
+def ls() -> None:
+    """List available datasets in AHORN."""
+    try:
+        datasets = load_datasets_data(cache_lifetime=3600)
+        if "error" in datasets:
+            typer.echo(f"Error: {datasets['error']}")
+            raise typer.Exit(code=1)
+    except Exception as e:
+        print(f"Failed to load datasets: {e}")
+        raise typer.Exit(code=1) from e
+
+    table = Table(title="Available Datasets")
+    table.add_column("Slug", style="cyan")
+    table.add_column("Title", style="magenta")
+    table.add_column("Tags", style="green")
+
+    for slug, details in datasets.items():
+        table.add_row(slug, details["title"], ", ".join(details["tags"]))
+    rich_print(table)
 
 
 @app.command()
