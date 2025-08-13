@@ -95,6 +95,10 @@ def download_dataset(
         folder = Path(folder)
 
     data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
+    if "error" in data:
+        raise ValueError(f"Error loading dataset '{slug}': {data['error']}")
+    if "attachments" not in data or "dataset" not in data["attachments"]:
+        raise KeyError(f"Dataset '{slug}' does not contain required 'attachments/dataset' keys.")
     dataset_attachment = data["attachments"]["dataset"]
 
     response = requests.get(dataset_attachment["url"], timeout=10, stream=True)
