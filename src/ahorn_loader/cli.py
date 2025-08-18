@@ -51,15 +51,13 @@ def download(
     folder : Path
         The folder where the dataset should be saved. Defaults to the current directory.
     """
-    download_dataset(name, folder, cache_lifetime=3600)
-    typer.echo(f"Downloaded dataset to {folder}")
-
     try:
         download_dataset(name, folder, cache_lifetime=3600)
-        typer.echo(f"Downloaded dataset to {folder}")
+        typer.echo(f"Downloaded dataset to {folder.absolute()}")
     except Exception as e:
         typer.echo(f"Failed to download dataset: {e}")
         raise typer.Exit(code=1) from e
+
 @app.command()
 def validate(
     path: Annotated[

@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import ParseResult, urlparse
 
 import requests
 
@@ -101,10 +102,13 @@ def download_dataset(
         raise KeyError(f"Dataset '{slug}' does not contain required 'attachments/dataset' keys.")
     dataset_attachment = data["attachments"]["dataset"]
 
+    url: ParseResult = urlparse(dataset_attachment["url"])
+    folder.mkdir(parents=True, exist_ok=True)
+    filepath = folder / url.path.split("/")[-1]
+
     response = requests.get(dataset_attachment["url"], timeout=10, stream=True)
     response.raise_for_status()
-    folder.mkdir(parents=True, exist_ok=True)
-    filepath = folder / dataset_attachment["name"]
+
     with filepath.open("wb") as f:
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
