@@ -40,3 +40,11 @@ ahorn_loader.download('dataset_name', 'target_path')
 # validate a specific dataset (e.g., before adding it to AHORN)
 ahorn_loader.validate('path_to_dataset_file')
 ```
+
+## Funding
+
+<img align="right" width="200" src="https://raw.githubusercontent.com/netsci-rwth/ahorn/main/public/images/erc_logo.png">
+
+Funded by the European Union (ERC, HIGH-HOPeS, 101039827).
+Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Research Council Executive Agency.
+Neither the European Union nor the granting authority can be held responsible for them.
