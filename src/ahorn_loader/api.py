@@ -1,6 +1,7 @@
 """Module to interact with the Ahorn dataset API."""
 
 import json
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
@@ -10,7 +11,12 @@ import requests
 
 from .utils import get_cache_dir
 
-__all__ = ["download_dataset", "load_dataset_data", "load_datasets_data"]
+__all__ = [
+    "download_dataset",
+    "load_dataset_data",
+    "load_datasets_data",
+    "read_dataset",
+]
 
 DATASET_API_URL = "https://ahorn.rwth-aachen.de/api/datasets.json"
 CACHE_PATH = get_cache_dir() / "datasets.json"
@@ -146,3 +152,41 @@ def download_dataset(
                 f.write(chunk)
 
     return filepath
+
+
+def read_dataset(slug: str) -> str:
+    """Download and read a dataset by its slug.
+
+    The dataset file will be stored in your system cache and can be deleted according
+    to your system's cache policy. To ensure that costly re-downloads do not occur, use
+    the `download_dataset` function to store the dataset file at a more permanent
+    location.
+
+    Parameters
+    ----------
+    slug : str
+        The slug of the dataset to download.
+
+    Returns
+    -------
+    str
+        The dataset file content. Be cautious that this string may be really big for
+        some datasets. In that case, iterate over the dataset file yourself.
+
+    Raises
+    ------
+    ValueError
+        If the dataset with the given `slug` does not exist.
+    RuntimeError
+        If the dataset file could not be downloaded due to other errors.
+    """
+    filepath = download_dataset(slug, get_cache_dir())
+    file_size = filepath.stat().st_size
+    if file_size > 100 * 1024 * 1024:  # 100 MB threshold
+        warnings.warn(
+            f"Dataset file is large ({file_size / (1024 * 1024):.1f} MB). "
+            "Consider using ahorn_loader.download_dataset() and reading the file in chunks.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return filepath.read_text()
