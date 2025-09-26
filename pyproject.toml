@@ -28,6 +28,7 @@ dev = [
 ]
 
 [tool.mypy]
+strict = true
 warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_ignores = true
@@ -38,7 +39,7 @@ minversion = "7.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
-log_cli_level = "info"
+log_cli_level = "INFO"
 testpaths = ["tests"]
 
 [tool.ruff.format]

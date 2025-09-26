@@ -3,18 +3,37 @@
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 from urllib.parse import ParseResult, urlparse
 
 import requests
 
+from .utils import get_cache_dir
+
 __all__ = ["download_dataset", "load_dataset_data", "load_datasets_data"]
 
 DATASET_API_URL = "https://ahorn.rwth-aachen.de/api/datasets.json"
-CACHE_PATH = Path(__file__).parent.parent.parent / "cache" / "datasets.json"
+CACHE_PATH = get_cache_dir() / "datasets.json"
 
 
-def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Any]:
+class AttachmentDict(TypedDict):
+    url: str
+    size: int
+
+
+class DatasetDict(TypedDict):
+    slug: str
+    title: str
+    tags: list[str]
+    attachments: dict[str, AttachmentDict]
+
+
+class DatasetsDataDict(TypedDict):
+    datasets: dict[str, DatasetDict]
+    time: str
+
+
+def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, DatasetDict]:
     """Load dataset data from the Ahorn API.
 
     Parameters
@@ -31,16 +50,11 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Any]:
         attachments.
     """
     if CACHE_PATH.exists() and cache_lifetime is not None:
-        with CACHE_PATH.open("r", encoding="utf-8") as cache_file:
-            cache = json.load(cache_file)
-        if (
-            cache.get("time")
-            and (
-                datetime.now(tz=UTC) - datetime.fromisoformat(cache["time"])
-            ).total_seconds()
-            < cache_lifetime
-        ):
-            return cache["datasets"]
+        cache_mtime = datetime.fromtimestamp(CACHE_PATH.stat().st_mtime, tz=UTC)
+        if (datetime.now(tz=UTC) - cache_mtime).total_seconds() < cache_lifetime:
+            with CACHE_PATH.open("r", encoding="utf-8") as cache_file:
+                cache: DatasetsDataDict = json.load(cache_file)
+                return cache["datasets"]
 
     response = requests.get(DATASET_API_URL, timeout=10)
     response.raise_for_status()
@@ -49,12 +63,11 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Any]:
     with CACHE_PATH.open("w", encoding="utf-8") as cache_file:
         cache_file.write(response.text)
 
-    return response.json()["datasets"]
+    response_json: DatasetsDataDict = response.json()
+    return response_json["datasets"]
 
 
-def load_dataset_data(
-    slug: str, *, cache_lifetime: int | None = None
-) -> dict[str, Any]:
+def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> DatasetDict:
     """Load data for a specific dataset by its slug.
 
     Parameters
@@ -67,19 +80,25 @@ def load_dataset_data(
 
     Returns
     -------
-    dict[str, Any]
+    DatasetDict
         Dictionary containing the dataset details.
+
+    Raises
+    ------
+    KeyError
+        If the dataset with the given `slug` does not exist.
     """
     datasets = load_datasets_data(cache_lifetime=cache_lifetime)
-    if "error" in datasets:
-        return {"error": datasets["error"]}
 
-    return datasets.get(slug, {"error": f"Dataset '{slug}' not found."})
+    if slug not in datasets:
+        raise KeyError(f"Dataset with slug '{slug}' does not exist in AHORN.")
+
+    return datasets[slug]
 
 
 def download_dataset(
     slug: str, folder: Path | str, *, cache_lifetime: int | None = None
-) -> None:
+) -> Path:
     """Download a dataset by its slug to the specified folder.
 
     Parameters
@@ -91,15 +110,27 @@ def download_dataset(
     cache_lifetime : int, optional
         How long to reuse cached data in seconds. If not provided, the cache will not
         be used.
+
+    Returns
+    -------
+    Path
+        The path to the downloaded dataset file.
+
+    Raises
+    ------
+    KeyError
+        If the dataset with the given `slug` does not exist.
+    RuntimeError
+        If the dataset file could not be downloaded due to some error.
     """
     if isinstance(folder, str):
         folder = Path(folder)
 
     data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
-    if "error" in data:
-        raise ValueError(f"Error loading dataset '{slug}': {data['error']}")
-    if "attachments" not in data or "dataset" not in data["attachments"]:
-        raise KeyError(f"Dataset '{slug}' does not contain required 'attachments/dataset' keys.")
+    if "dataset" not in data["attachments"]:
+        raise RuntimeError(
+            f"Dataset '{slug}' does not contain required 'attachments/dataset' keys."
+        )
     dataset_attachment = data["attachments"]["dataset"]
 
     url: ParseResult = urlparse(dataset_attachment["url"])
@@ -113,3 +144,5 @@ def download_dataset(
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
+
+    return filepath
