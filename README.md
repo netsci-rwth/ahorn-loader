@@ -40,7 +40,9 @@ ahorn_loader.download_dataset("dataset_name", "target_path")
 # Download and read a dataset:
 # The dataset will be stored in your system's cache. For a more permanent storage
 # location, use `ahorn_loader.download_dataset` instead.
-ahorn_loader.read_dataset("dataset_name")
+with ahorn_loader.read_dataset("dataset_name") as dataset:
+    for line in dataset:
+        ...
 
 # Validate a specific dataset (e.g., before adding it to AHORN):
 ahorn_loader.validate("path_to_dataset_file")

@@ -1,7 +1,9 @@
 """Module to interact with the Ahorn dataset API."""
 
+import contextlib
+import gzip
 import json
-import warnings
+from collections.abc import Generator, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
@@ -19,7 +21,6 @@ __all__ = [
 ]
 
 DATASET_API_URL = "https://ahorn.rwth-aachen.de/api/datasets.json"
-CACHE_PATH = get_cache_dir() / "datasets.json"
 
 
 class AttachmentDict(TypedDict):
@@ -55,18 +56,21 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Datase
         and the values are dictionaries with dataset details such as title, tags, and
         attachments.
     """
-    if CACHE_PATH.exists() and cache_lifetime is not None:
-        cache_mtime = datetime.fromtimestamp(CACHE_PATH.stat().st_mtime, tz=UTC)
+    datasets_data_cache = get_cache_dir() / "datasets.json"
+    if datasets_data_cache.exists() and cache_lifetime is not None:
+        cache_mtime = datetime.fromtimestamp(
+            datasets_data_cache.stat().st_mtime, tz=UTC
+        )
         if (datetime.now(tz=UTC) - cache_mtime).total_seconds() < cache_lifetime:
-            with CACHE_PATH.open("r", encoding="utf-8") as cache_file:
+            with datasets_data_cache.open("r", encoding="utf-8") as cache_file:
                 cache: DatasetsDataDict = json.load(cache_file)
                 return cache["datasets"]
 
     response = requests.get(DATASET_API_URL, timeout=10)
     response.raise_for_status()
 
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with CACHE_PATH.open("w", encoding="utf-8") as cache_file:
+    datasets_data_cache.parent.mkdir(parents=True, exist_ok=True)
+    with datasets_data_cache.open("w", encoding="utf-8") as cache_file:
         cache_file.write(response.text)
 
     response_json: DatasetsDataDict = response.json()
@@ -154,8 +158,9 @@ def download_dataset(
     return filepath
 
 
-def read_dataset(slug: str) -> str:
-    """Download and read a dataset by its slug.
+@contextlib.contextmanager
+def read_dataset(slug: str) -> Generator[Iterable[str], None, None]:
+    """Download and yield a context-managed file object for the dataset lines by slug.
 
     The dataset file will be stored in your system cache and can be deleted according
     to your system's cache policy. To ensure that costly re-downloads do not occur, use
@@ -169,9 +174,7 @@ def read_dataset(slug: str) -> str:
 
     Returns
     -------
-    str
-        The dataset file content. Be cautious that this string may be really big for
-        some datasets. In that case, iterate over the dataset file yourself.
+    Context manager yielding an open file object (iterator over lines).
 
     Raises
     ------
@@ -179,14 +182,18 @@ def read_dataset(slug: str) -> str:
         If the dataset with the given `slug` does not exist.
     RuntimeError
         If the dataset file could not be downloaded due to other errors.
+
+    Examples
+    --------
+    >>> import ahorn_loader
+    >>> with ahorn_loader.read_dataset("contact-high-school") as f:
+    >>>     for line in f:
+    >>>         ...
     """
     filepath = download_dataset(slug, get_cache_dir())
-    file_size = filepath.stat().st_size
-    if file_size > 100 * 1024 * 1024:  # 100 MB threshold
-        warnings.warn(
-            f"Dataset file is large ({file_size / (1024 * 1024):.1f} MB). "
-            "Consider using ahorn_loader.download_dataset() and reading the file in chunks.",
-            UserWarning,
-            stacklevel=2,
-        )
-    return filepath.read_text()
+    if filepath.suffix == ".gz":
+        with gzip.open(filepath, mode="rt", encoding="utf-8") as f:
+            yield f
+    else:
+        with filepath.open("r", encoding="utf-8") as f:
+            yield f
