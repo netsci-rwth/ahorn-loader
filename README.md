@@ -2,6 +2,13 @@
 
 Library and command-line application to interact with datasets in [AHORN](https://ahorn.rwth-aachen.de/).
 
+<div align="center">
+
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![license](https://badgen.net/github/license/netsci-rwth/ahorn-loader)](https://github.com/pyt-team/TopoNetX/blob/main/LICENSE)
+
+</div>
+
 ## Usage
 
 `ahorn-loader` is both a command-line application and a Python package to interact with the AHORN repository for higher-order datasets.

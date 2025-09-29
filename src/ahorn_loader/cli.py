@@ -58,6 +58,7 @@ def download(
         typer.echo(f"Failed to download dataset: {e}")
         raise typer.Exit(code=1) from e
 
+
 @app.command()
 def validate(
     path: Annotated[
