@@ -34,11 +34,18 @@ Then, you can use it in your Python scripts:
 ```python
 import ahorn_loader
 
-# download a dataset
-ahorn_loader.download('dataset_name', 'target_path')
+# Download a dataset:
+ahorn_loader.download_dataset("dataset_name", "target_path")
 
-# validate a specific dataset (e.g., before adding it to AHORN)
-ahorn_loader.validate('path_to_dataset_file')
+# Download and read a dataset:
+# The dataset will be stored in your system's cache. For a more permanent storage
+# location, use `ahorn_loader.download_dataset` instead.
+with ahorn_loader.read_dataset("dataset_name") as dataset:
+    for line in dataset:
+        ...
+
+# Validate a specific dataset (e.g., before adding it to AHORN):
+ahorn_loader.validate("path_to_dataset_file")
 ```
 
 ## Funding
