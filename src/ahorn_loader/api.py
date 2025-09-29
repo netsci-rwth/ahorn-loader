@@ -178,7 +178,7 @@ def read_dataset(slug: str) -> Generator[Iterable[str], None, None]:
 
     Raises
     ------
-    ValueError
+    KeyError
         If the dataset with the given `slug` does not exist.
     RuntimeError
         If the dataset file could not be downloaded due to other errors.
