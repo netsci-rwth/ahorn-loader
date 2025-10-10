@@ -4,7 +4,7 @@ Library and command-line application to interact with datasets in [AHORN](https:
 
 <div align="center">
 
-[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.12+-blue)](https://www.python.org/)
 [![license](https://badgen.net/github/license/netsci-rwth/ahorn-loader)](https://github.com/pyt-team/TopoNetX/blob/main/LICENSE)
 
 </div>
