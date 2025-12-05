@@ -3,6 +3,7 @@ name = "ahorn-loader"
 version = "0.2.0"
 description = "Library and command-line application to interact with datasets in the Aachen Higher-Order Repository of Networks."
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "Florian Frantzen", email = "frantzen@netsci.rwth-aachen.de" }
 ]
@@ -51,7 +52,7 @@ minversion = "7.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
-log_cli_level = "INFO"
+log_level = "INFO"
 testpaths = ["tests"]
 
 [tool.ruff.format]
