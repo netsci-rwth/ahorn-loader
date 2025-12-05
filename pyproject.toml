@@ -3,6 +3,7 @@ name = "ahorn-loader"
 version = "0.2.0"
 description = "Library and command-line application to interact with datasets in the Aachen Higher-Order Repository of Networks."
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "Florian Frantzen", email = "frantzen@netsci.rwth-aachen.de" }
 ]
