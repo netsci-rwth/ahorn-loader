@@ -3,7 +3,9 @@
 import contextlib
 import gzip
 import json
-from collections.abc import Generator, Iterable
+import logging
+import time
+from collections.abc import Generator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
@@ -21,6 +23,8 @@ __all__ = [
 ]
 
 DATASET_API_URL = "https://ahorn.rwth-aachen.de/api/datasets.json"
+
+logger = logging.getLogger(__name__)
 
 
 class AttachmentDict(TypedDict):
@@ -111,6 +115,10 @@ def download_dataset(
 ) -> Path:
     """Download a dataset by its slug to the specified folder.
 
+    This function implements an exponential backoff strategy when encountering HTTP 429
+    (Too Many Requests) responses. If available, it respects the 'Retry-After' header to
+    determine the wait time before retrying.
+
     Parameters
     ----------
     slug : str
@@ -130,6 +138,8 @@ def download_dataset(
     ------
     KeyError
         If the dataset with the given `slug` does not exist.
+    HTTPError
+        If the dataset file could not be downloaded due to some error.
     RuntimeError
         If the dataset file could not be downloaded due to some error.
     """
@@ -147,19 +157,52 @@ def download_dataset(
     folder.mkdir(parents=True, exist_ok=True)
     filepath = folder / url.path.split("/")[-1]
 
-    response = requests.get(dataset_attachment["url"], timeout=10, stream=True)
-    response.raise_for_status()
+    max_retries = 5
+    attempt = 0
+    while True:
+        with requests.get(
+            dataset_attachment["url"], timeout=10, stream=True
+        ) as response:
+            # Exponential backoff if we are rate limited
+            if response.status_code == 429:
+                attempt += 1
+                if attempt > max_retries:
+                    raise RuntimeError(
+                        f"Rate limited when downloading '{slug}' and max retries exceeded."
+                    )
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = (
+                        int(retry_after)
+                        if retry_after is not None
+                        else min(2**attempt, 30)
+                    )
+                except ValueError:
+                    delay = min(2**attempt, 30)
+                logger.info(
+                    "Rate limited (429) downloading '%s'; sleeping %ss before retry %d/%d",
+                    slug,
+                    delay,
+                    attempt,
+                    max_retries,
+                )
+                time.sleep(delay)
+                continue
 
-    with filepath.open("wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)
+            # Raise for other HTTP errors
+            response.raise_for_status()
+
+            with filepath.open("wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            break
 
     return filepath
 
 
 @contextlib.contextmanager
-def read_dataset(slug: str) -> Generator[Iterable[str], None, None]:
+def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
     """Download and yield a context-managed file object for the dataset lines by slug.
 
     The dataset file will be stored in your system cache and can be deleted according
@@ -186,8 +229,8 @@ def read_dataset(slug: str) -> Generator[Iterable[str], None, None]:
     Examples
     --------
     >>> import ahorn_loader
-    >>> with ahorn_loader.read_dataset("contact-high-school") as f:
-    >>>     for line in f:
+    >>> with ahorn_loader.read_dataset("contact-high-school") as dataset:
+    >>>     for line in dataset:
     >>>         ...
     """
     filepath = download_dataset(slug, get_cache_dir())
