@@ -5,7 +5,7 @@ Library and command-line application to interact with datasets in [AHORN](https:
 <div align="center">
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue)](https://www.python.org/)
-[![license](https://badgen.net/github/license/netsci-rwth/ahorn-loader)](https://github.com/pyt-team/TopoNetX/blob/main/LICENSE)
+[![license](https://badgen.net/github/license/netsci-rwth/ahorn-loader)](https://github.com/netsci-rwth/ahorn-loader/blob/main/LICENSE)
 
 </div>
 
@@ -51,9 +51,6 @@ ahorn_loader.download_dataset("dataset_name", "target_path")
 with ahorn_loader.read_dataset("dataset_name") as dataset:
     for line in dataset:
         ...
-
-# Validate a specific dataset (e.g., before adding it to AHORN):
-ahorn_loader.validate("path_to_dataset_file")
 ```
 
 ## Funding

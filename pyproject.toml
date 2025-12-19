@@ -1,6 +1,6 @@
 [project]
 name = "ahorn-loader"
-version = "0.2.0"
+version = "0.3.0"
 description = "Library and command-line application to interact with datasets in the Aachen Higher-Order Repository of Networks."
 readme = "README.md"
 license = "MIT"
