@@ -4,14 +4,14 @@ import contextlib
 import gzip
 import json
 import logging
-import time
 from collections.abc import Generator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
 from urllib.parse import ParseResult, urlparse
 
-import requests
+import httpx
+from httpx_retries import Retry, RetryTransport
 
 from .utils import get_cache_dir
 
@@ -70,7 +70,7 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Datase
                 cache: DatasetsDataDict = json.load(cache_file)
                 return cache["datasets"]
 
-    response = requests.get(DATASET_API_URL, timeout=10)
+    response = httpx.get(DATASET_API_URL, timeout=10)
     response.raise_for_status()
 
     datasets_data_cache.parent.mkdir(parents=True, exist_ok=True)
@@ -157,46 +157,23 @@ def download_dataset(
     folder.mkdir(parents=True, exist_ok=True)
     filepath = folder / url.path.split("/")[-1]
 
-    max_retries = 5
-    attempt = 0
-    while True:
-        with requests.get(
-            dataset_attachment["url"], timeout=10, stream=True
-        ) as response:
-            # Exponential backoff if we are rate limited
-            if response.status_code == 429:
-                attempt += 1
-                if attempt > max_retries:
-                    raise RuntimeError(
-                        f"Rate limited when downloading '{slug}' and max retries exceeded."
-                    )
-                retry_after = response.headers.get("Retry-After")
-                try:
-                    delay = (
-                        int(retry_after)
-                        if retry_after is not None
-                        else min(2**attempt, 30)
-                    )
-                except ValueError:
-                    delay = min(2**attempt, 30)
-                logger.info(
-                    "Rate limited (429) downloading '%s'; sleeping %ss before retry %d/%d",
-                    slug,
-                    delay,
-                    attempt,
-                    max_retries,
-                )
-                time.sleep(delay)
-                continue
+    # Use RetryTransport to automatically handle rate limiting (429) with exponential
+    # backoff. This also automatically respects 'Retry-After' headers if provided.
+    retry = Retry(
+        total=5,
+        backoff_factor=2.0,
+    )
+    retry_transport = RetryTransport(retry=retry)
 
-            # Raise for other HTTP errors
-            response.raise_for_status()
+    with (
+        httpx.Client(transport=retry_transport, timeout=10) as client,
+        client.stream("GET", dataset_attachment["url"]) as response,
+    ):
+        response.raise_for_status()
 
-            with filepath.open("wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            break
+        with filepath.open("wb") as f:
+            for chunk in response.iter_bytes(chunk_size=8192):
+                f.write(chunk)
 
     return filepath
 
