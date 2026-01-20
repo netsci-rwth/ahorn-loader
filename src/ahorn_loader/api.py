@@ -65,11 +65,18 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Datase
         cache_mtime = datetime.fromtimestamp(
             datasets_data_cache.stat().st_mtime, tz=UTC
         )
-        if (datetime.now(tz=UTC) - cache_mtime).total_seconds() < cache_lifetime:
+        age_seconds = (datetime.now(tz=UTC) - cache_mtime).total_seconds()
+        if age_seconds < cache_lifetime:
+            logger.info(
+                "Using cached datasets list (age=%.1fs, lifetime=%ss)",
+                age_seconds,
+                cache_lifetime,
+            )
             with datasets_data_cache.open("r", encoding="utf-8") as cache_file:
                 cache: DatasetsDataDict = json.load(cache_file)
                 return cache["datasets"]
 
+    logger.info("Fetching datasets list from %s", DATASET_API_URL)
     response = httpx.get(DATASET_API_URL, timeout=10)
     response.raise_for_status()
 
@@ -146,6 +153,7 @@ def download_dataset(
     if isinstance(folder, str):
         folder = Path(folder)
 
+    logger.info("Preparing download for dataset '%s' into %s", slug, folder)
     data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
     if "dataset" not in data["attachments"]:
         raise RuntimeError(
@@ -174,6 +182,8 @@ def download_dataset(
         with filepath.open("wb") as f:
             for chunk in response.iter_bytes(chunk_size=8192):
                 f.write(chunk)
+
+    logger.info("Downloaded dataset '%s' to %s", slug, filepath)
 
     return filepath
 
