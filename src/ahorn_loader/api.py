@@ -117,6 +117,37 @@ def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> Datase
     return datasets[slug]
 
 
+def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> str:
+    """Get the download URL for a specific dataset by its slug.
+
+    Parameters
+    ----------
+    slug : str
+        The slug of the dataset.
+    cache_lifetime : int, optional
+        How long to reuse cached data in seconds. If not provided, the cache will not
+        be used.
+
+    Returns
+    -------
+    str
+        The download URL of the dataset.
+
+    Raises
+    ------
+    KeyError
+        If the dataset with the given `slug` does not exist.
+    RuntimeError
+        If the dataset does not contain the required attachment information.
+    """
+    data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
+    if "dataset" not in data["attachments"]:
+        raise RuntimeError(
+            f"Dataset '{slug}' does not contain required 'attachments/dataset' keys."
+        )
+    return data["attachments"]["dataset"]["url"]
+
+
 def download_dataset(
     slug: str, folder: Path | str, *, cache_lifetime: int | None = None
 ) -> Path:
@@ -154,14 +185,9 @@ def download_dataset(
         folder = Path(folder)
 
     logger.info("Preparing download for dataset '%s' into %s", slug, folder)
-    data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
-    if "dataset" not in data["attachments"]:
-        raise RuntimeError(
-            f"Dataset '{slug}' does not contain required 'attachments/dataset' keys."
-        )
-    dataset_attachment = data["attachments"]["dataset"]
+    download_url = get_dataset_url(slug, cache_lifetime=cache_lifetime)
 
-    url: ParseResult = urlparse(dataset_attachment["url"])
+    url: ParseResult = urlparse(download_url)
     folder.mkdir(parents=True, exist_ok=True)
     filepath = folder / url.path.split("/")[-1]
 
@@ -175,7 +201,7 @@ def download_dataset(
 
     with (
         httpx.Client(transport=retry_transport, timeout=10) as client,
-        client.stream("GET", dataset_attachment["url"]) as response,
+        client.stream("GET", download_url) as response,
     ):
         response.raise_for_status()
 
@@ -220,7 +246,13 @@ def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
     >>>     for line in dataset:
     >>>         ...
     """
-    filepath = download_dataset(slug, get_cache_dir())
+    download_url = get_dataset_url(slug)
+    filepath = get_cache_dir() / download_url.split("/")[-1]
+
+    # Download the dataset if it is not already cached
+    if not filepath.exists():
+        filepath = download_dataset(slug, get_cache_dir())
+
     if filepath.suffix == ".gz":
         with gzip.open(filepath, mode="rt", encoding="utf-8") as f:
             yield f
