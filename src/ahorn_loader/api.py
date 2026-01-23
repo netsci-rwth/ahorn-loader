@@ -8,7 +8,6 @@ from collections.abc import Generator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
-from urllib.parse import ParseResult, urlparse
 
 import httpx
 from httpx_retries import Retry, RetryTransport
@@ -17,6 +16,7 @@ from .utils import get_cache_dir
 
 __all__ = [
     "download_dataset",
+    "get_dataset_url",
     "load_dataset_data",
     "load_datasets_data",
     "read_dataset",
@@ -117,7 +117,7 @@ def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> Datase
     return datasets[slug]
 
 
-def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> str:
+def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> httpx.URL:
     """Get the download URL for a specific dataset by its slug.
 
     Parameters
@@ -130,7 +130,7 @@ def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> str:
 
     Returns
     -------
-    str
+    httpx.URL
         The download URL of the dataset.
 
     Raises
@@ -145,7 +145,7 @@ def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> str:
         raise RuntimeError(
             f"Dataset '{slug}' does not contain required 'attachments/dataset' keys."
         )
-    return data["attachments"]["dataset"]["url"]
+    return httpx.URL(data["attachments"]["dataset"]["url"])
 
 
 def download_dataset(
@@ -187,9 +187,8 @@ def download_dataset(
     logger.info("Preparing download for dataset '%s' into %s", slug, folder)
     download_url = get_dataset_url(slug, cache_lifetime=cache_lifetime)
 
-    url: ParseResult = urlparse(download_url)
     folder.mkdir(parents=True, exist_ok=True)
-    filepath = folder / url.path.split("/")[-1]
+    filepath = folder / download_url.path.split("/")[-1]
 
     # Use RetryTransport to automatically handle rate limiting (429) with exponential
     # backoff. This also automatically respects 'Retry-After' headers if provided.
@@ -247,7 +246,7 @@ def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
     >>>         ...
     """
     download_url = get_dataset_url(slug)
-    filepath = get_cache_dir() / download_url.split("/")[-1]
+    filepath = get_cache_dir() / download_url.path.split("/")[-1]
 
     # Download the dataset if it is not already cached
     if not filepath.exists():
