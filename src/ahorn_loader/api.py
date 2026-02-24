@@ -1,4 +1,4 @@
-"""Module to interact with the Ahorn dataset API."""
+"""Module to interact with the AHORN dataset API."""
 
 import contextlib
 import gzip
@@ -106,24 +106,29 @@ def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> Datase
 
     Raises
     ------
-    KeyError
+    ValueError
         If the dataset with the given `slug` does not exist.
     """
     datasets = load_datasets_data(cache_lifetime=cache_lifetime)
 
     if slug not in datasets:
-        raise KeyError(f"Dataset with slug '{slug}' does not exist in AHORN.")
+        raise ValueError(f"Dataset with slug '{slug}' does not exist in AHORN.")
 
     return datasets[slug]
 
 
-def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> httpx.URL:
+def get_dataset_url(
+    slug: str, revision: int | None = None, *, cache_lifetime: int | None = None
+) -> httpx.URL:
     """Get the download URL for a specific dataset by its slug.
 
     Parameters
     ----------
     slug : str
         The slug of the dataset.
+    revision : int, optional
+        The revision number to download. If not provided, the latest revision will be
+        used.
     cache_lifetime : int, optional
         How long to reuse cached data in seconds. If not provided, the cache will not
         be used.
@@ -135,21 +140,51 @@ def get_dataset_url(slug: str, *, cache_lifetime: int | None = None) -> httpx.UR
 
     Raises
     ------
-    KeyError
+    ValueError
         If the dataset with the given `slug` does not exist.
+    ValueError
+        If the revision number is not valid, e.g. because the specified revision does
+        not exist for the dataset.
     RuntimeError
         If the dataset does not contain the required attachment information.
     """
     data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
-    if "dataset" not in data["attachments"]:
+
+    revisions = [key for key in data["attachments"] if key.startswith("revision-")]
+
+    if not revisions:
         raise RuntimeError(
-            f"Dataset '{slug}' does not contain required 'attachments/dataset' keys."
+            f"Dataset '{slug}' does not contain any revision attachments. "
+            "This is an error with the dataset metadata and should be reported to the maintainers."
         )
-    return httpx.URL(data["attachments"]["dataset"]["url"])
+
+    if revision is None:
+        # Use the latest revision (highest number)
+        revision_numbers = [int(key.split("-")[1]) for key in revisions]
+        latest_revision = max(revision_numbers)
+        revision_key = f"revision-{latest_revision}"
+        logger.info(
+            "No revision was explicitly specified, using latest revision: %d",
+            latest_revision,
+        )
+    else:
+        revision_key = f"revision-{revision}"
+        if revision_key not in data["attachments"]:
+            available = sorted([int(k.split("-")[1]) for k in revisions])
+            raise ValueError(
+                f"Dataset '{slug}' does not have revision {revision}. "
+                f"Available revisions: {available}"
+            )
+
+    return httpx.URL(data["attachments"][revision_key]["url"])
 
 
 def download_dataset(
-    slug: str, folder: Path | str, *, cache_lifetime: int | None = None
+    slug: str,
+    folder: Path | str,
+    revision: int | None = None,
+    *,
+    cache_lifetime: int | None = None,
 ) -> Path:
     """Download a dataset by its slug to the specified folder.
 
@@ -163,6 +198,9 @@ def download_dataset(
         The slug of the dataset to download.
     folder : Path | str
         The folder where the dataset should be saved.
+    revision : int, optional
+        The revision number to download. If not provided, the latest revision will be
+        used. Specifying an explicit revision can be important for reproducibility.
     cache_lifetime : int, optional
         How long to reuse cached data in seconds. If not provided, the cache will not
         be used.
@@ -174,8 +212,11 @@ def download_dataset(
 
     Raises
     ------
-    KeyError
+    ValueError
         If the dataset with the given `slug` does not exist.
+    ValueError
+        If the revision number is not valid, e.g. because the specified revision does
+        not exist for the dataset.
     HTTPError
         If the dataset file could not be downloaded due to some error.
     RuntimeError
@@ -185,7 +226,7 @@ def download_dataset(
         folder = Path(folder)
 
     logger.info("Preparing download for dataset '%s' into %s", slug, folder)
-    download_url = get_dataset_url(slug, cache_lifetime=cache_lifetime)
+    download_url = get_dataset_url(slug, revision, cache_lifetime=cache_lifetime)
 
     folder.mkdir(parents=True, exist_ok=True)
     filepath = folder / download_url.path.split("/")[-1]
@@ -214,7 +255,9 @@ def download_dataset(
 
 
 @contextlib.contextmanager
-def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
+def read_dataset(
+    slug: str, revision: int | None = None
+) -> Generator[Iterator[str], None, None]:
     """Download and yield a context-managed file object for the dataset lines by slug.
 
     The dataset file will be stored in your system cache and can be deleted according
@@ -226,6 +269,9 @@ def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
     ----------
     slug : str
         The slug of the dataset to download.
+    revision : int, optional
+        The revision number to download. If not provided, the latest revision will be
+        used. Specifying an explicit revision can be important for reproducibility.
 
     Returns
     -------
@@ -233,8 +279,11 @@ def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
 
     Raises
     ------
-    KeyError
+    ValueError
         If the dataset with the given `slug` does not exist.
+    ValueError
+        If the revision number is not valid, e.g. because the specified revision does
+        not exist for the dataset.
     RuntimeError
         If the dataset file could not be downloaded due to other errors.
 
@@ -245,12 +294,12 @@ def read_dataset(slug: str) -> Generator[Iterator[str], None, None]:
     >>>     for line in dataset:
     >>>         ...
     """
-    download_url = get_dataset_url(slug)
+    download_url = get_dataset_url(slug, revision)
     filepath = get_cache_dir() / download_url.path.split("/")[-1]
 
     # Download the dataset if it is not already cached
     if not filepath.exists():
-        filepath = download_dataset(slug, get_cache_dir())
+        filepath = download_dataset(slug, get_cache_dir(), revision)
 
     if filepath.suffix == ".gz":
         with gzip.open(filepath, mode="rt", encoding="utf-8") as f:
