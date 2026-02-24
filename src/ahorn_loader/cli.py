@@ -41,6 +41,14 @@ def download(
     folder: Annotated[
         Path, typer.Argument(help="Folder where the dataset should be saved.")
     ] = Path(),
+    revision: Annotated[
+        int | None,
+        typer.Option(
+            "--revision",
+            "-r",
+            help="Revision number to download (defaults to latest).",
+        ),
+    ] = None,
 ) -> None:
     """Download the specified dataset from AHORN.
 
@@ -50,9 +58,11 @@ def download(
         The name of the dataset to download.
     folder : Path
         The folder where the dataset should be saved. Defaults to the current directory.
+    revision : int, optional
+        The revision number to download. Defaults to the latest revision.
     """
     try:
-        download_dataset(name, folder, cache_lifetime=3600)
+        download_dataset(name, folder, revision, cache_lifetime=3600)
         typer.echo(f"Downloaded dataset to {folder.absolute()}")
     except Exception as e:
         typer.echo(f"Failed to download dataset: {e}")

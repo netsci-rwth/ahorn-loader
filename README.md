@@ -42,8 +42,11 @@ Then, you can use it in your Python scripts:
 ```python
 import ahorn_loader
 
-# Download a dataset:
+# Download the latest revision of a dataset:
 ahorn_loader.download_dataset("dataset_name", "target_path")
+
+# Download a specific revision of a dataset:
+ahorn_loader.download_dataset("dataset_name", "target_path", revision=3)
 
 # Download and read a dataset:
 # The dataset will be stored in your system's cache. For a more permanent storage
