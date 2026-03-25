@@ -7,8 +7,7 @@ import typer
 from rich import print as rich_print
 from rich.table import Table
 
-from .api import download_dataset, load_datasets_data
-from .validator import Validator
+from .api import download_dataset, load_datasets_data, validate_dataset
 
 app = typer.Typer()
 
@@ -82,8 +81,9 @@ def validate(
     path : Path
         The path to the dataset file to validate.
     """
-    validator = Validator()
-    if not validator.validate(path):
+    if validate_dataset(path):
+        typer.echo("Validation successful.")
+    else:
         typer.echo("Validation failed.")
         raise typer.Exit(code=1)
 

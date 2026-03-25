@@ -23,6 +23,7 @@ requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.27.0",
     "httpx-retries>=0.4.5",
+    "pydantic>=2.12.4",
     "typer>=0.16.0",
 ]
 
@@ -46,6 +47,7 @@ warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_ignores = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
