@@ -17,13 +17,17 @@ def get_cache_dir() -> Path:
     """
     match sys.platform:
         case "win32":
-            base = os.getenv("LOCALAPPDATA") or Path("~\\AppData\\Local").expanduser()
-            return Path(base) / "ahorn-loader" / "Cache"
+            # Prefer LOCALAPPDATA if it points to an absolute path; otherwise fall back
+            # to the standard location under the user's home directory.
+            base_path = Path(os.getenv("LOCALAPPDATA", ""))
+            if not base_path.is_absolute():
+                base_path = Path("~\\AppData\\Local").expanduser()
+            return base_path / "ahorn-loader" / "Cache"
         case "darwin":
             return Path.home() / "Library" / "Caches" / "ahorn-loader"
         case _:
             # Linux and other Unix
-            xdg = os.getenv("XDG_CACHE_HOME")
-            if xdg:
-                return Path(xdg) / "ahorn-loader"
-            return Path.home() / ".cache" / "ahorn-loader"
+            base_path = Path(os.getenv("XDG_CACHE_HOME", ""))
+            if not base_path.is_absolute():
+                base_path = Path.home() / ".cache"
+            return base_path / "ahorn-loader"
