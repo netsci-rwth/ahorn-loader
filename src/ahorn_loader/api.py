@@ -13,6 +13,7 @@ import httpx
 from httpx_retries import Retry, RetryTransport
 
 from .utils import get_cache_dir
+from .validator import Validator
 
 __all__ = [
     "download_dataset",
@@ -20,6 +21,7 @@ __all__ = [
     "load_dataset_data",
     "load_datasets_data",
     "read_dataset",
+    "validate_dataset",
 ]
 
 DATASET_API_URL = "https://ahorn.rwth-aachen.de/api/datasets.json"
@@ -307,3 +309,17 @@ def read_dataset(
     else:
         with filepath.open("r", encoding="utf-8") as f:
             yield f
+
+
+def validate_dataset(path: str | Path) -> bool:
+    """Validate whether a given file is a valid AHORN dataset.
+
+    Validation errors are logged, but not raised as exceptions.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The path to the dataset file to validate.
+    """
+    validator = Validator()
+    return validator.validate(path)
