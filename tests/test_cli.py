@@ -1,5 +1,6 @@
 """Tests the command-line interface of the ``ahorn-loader`` package."""
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -46,4 +47,8 @@ def test_download_command_karate_club(tmp_path: Path) -> None:
 
     with downloaded_file.open() as f:
         first_line = f.readline().strip()
-        assert first_line == '{"name": "karate-club", "_format-version": "0.1"}'
+        assert json.loads(first_line) == {
+            "name": "karate-club",
+            "format-version": "0.3",
+            "revision": 2,
+        }
