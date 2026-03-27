@@ -4,7 +4,7 @@ import contextlib
 import gzip
 import json
 import logging
-from collections.abc import Generator, Iterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
@@ -46,7 +46,9 @@ class DatasetsDataDict(TypedDict):
     time: str
 
 
-def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, DatasetDict]:
+async def load_datasets_data(
+    *, cache_lifetime: int | None = None
+) -> dict[str, DatasetDict]:
     """Load dataset data from the Ahorn API.
 
     Parameters
@@ -79,8 +81,9 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Datase
                 return cache["datasets"]
 
     logger.info("Fetching datasets list from %s", DATASET_API_URL)
-    response = httpx.get(DATASET_API_URL, timeout=10)
-    response.raise_for_status()
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.get(DATASET_API_URL)
+        response.raise_for_status()
 
     datasets_data_cache.parent.mkdir(parents=True, exist_ok=True)
     with datasets_data_cache.open("w", encoding="utf-8") as cache_file:
@@ -90,7 +93,9 @@ def load_datasets_data(*, cache_lifetime: int | None = None) -> dict[str, Datase
     return response_json["datasets"]
 
 
-def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> DatasetDict:
+async def load_dataset_data(
+    slug: str, *, cache_lifetime: int | None = None
+) -> DatasetDict:
     """Load data for a specific dataset by its slug.
 
     Parameters
@@ -111,7 +116,7 @@ def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> Datase
     ValueError
         If the dataset with the given `slug` does not exist.
     """
-    datasets = load_datasets_data(cache_lifetime=cache_lifetime)
+    datasets = await load_datasets_data(cache_lifetime=cache_lifetime)
 
     if slug not in datasets:
         raise ValueError(f"Dataset with slug '{slug}' does not exist in AHORN.")
@@ -119,7 +124,7 @@ def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> Datase
     return datasets[slug]
 
 
-def get_dataset_url(
+async def get_dataset_url(
     slug: str, revision: int | None = None, *, cache_lifetime: int | None = None
 ) -> httpx.URL:
     """Get the download URL for a specific dataset by its slug.
@@ -152,10 +157,11 @@ def get_dataset_url(
 
     Examples
     --------
-    >>> str(get_dataset_url("karate-club", revision=2))
-    'https://zenodo.org/records/19236080/files/karate-club.txt?download=1'
+    >>> import asyncio
+    >>> asyncio.run(get_dataset_url("karate-club", revision=2))
+    URL('https://zenodo.org/records/19236080/files/karate-club.txt?download=1')
     """
-    data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
+    data = await load_dataset_data(slug, cache_lifetime=cache_lifetime)
 
     revisions = [key for key in data["attachments"] if key.startswith("revision-")]
 
@@ -186,7 +192,7 @@ def get_dataset_url(
     return httpx.URL(data["attachments"][revision_key]["url"])
 
 
-def download_dataset(
+async def download_dataset(
     slug: str,
     folder: Path | str,
     revision: int | None = None,
@@ -233,7 +239,7 @@ def download_dataset(
         folder = Path(folder)
 
     logger.info("Preparing download for dataset '%s' into %s", slug, folder)
-    download_url = get_dataset_url(slug, revision, cache_lifetime=cache_lifetime)
+    download_url = await get_dataset_url(slug, revision, cache_lifetime=cache_lifetime)
 
     folder.mkdir(parents=True, exist_ok=True)
     filepath = folder / download_url.path.split("/")[-1]
@@ -246,14 +252,14 @@ def download_dataset(
     )
     retry_transport = RetryTransport(retry=retry)
 
-    with (
-        httpx.Client(transport=retry_transport, timeout=10) as client,
+    async with (
+        httpx.AsyncClient(transport=retry_transport, timeout=10) as client,
         client.stream("GET", download_url) as response,
     ):
         response.raise_for_status()
 
         with filepath.open("wb") as f:
-            for chunk in response.iter_bytes(chunk_size=8192):
+            async for chunk in response.aiter_bytes(chunk_size=8192):
                 f.write(chunk)
 
     logger.info("Downloaded dataset '%s' to %s", slug, filepath)
@@ -261,10 +267,10 @@ def download_dataset(
     return filepath
 
 
-@contextlib.contextmanager
-def read_dataset(
+@contextlib.asynccontextmanager
+async def read_dataset(
     slug: str, revision: int | None = None
-) -> Generator[Iterator[str], None, None]:
+) -> AsyncIterator[Iterator[str]]:
     """Download and yield a context-managed file object for the dataset lines by slug.
 
     The dataset file will be stored in your system cache and can be deleted according
@@ -296,16 +302,19 @@ def read_dataset(
 
     Examples
     --------
-    >>> with ahorn_loader.read_dataset("karate-club", revision=2) as dataset:
-    ...     next(dataset).strip()
+    >>> async def _read_first_line() -> str:
+    ...     async with ahorn_loader.read_dataset("karate-club", revision=2) as dataset:
+    ...         return next(dataset).strip()
+    >>> import asyncio
+    >>> asyncio.run(_read_first_line())
     '{"name": "karate-club", "format-version": "0.3", "revision": 2}'
     """
-    download_url = get_dataset_url(slug, revision)
+    download_url = await get_dataset_url(slug, revision)
     filepath = get_cache_dir() / download_url.path.split("/")[-1]
 
     # Download the dataset if it is not already cached
     if not filepath.exists():
-        filepath = download_dataset(slug, get_cache_dir(), revision)
+        filepath = await download_dataset(slug, get_cache_dir(), revision)
 
     if filepath.suffix == ".gz":
         with gzip.open(filepath, mode="rt", encoding="utf-8") as f:

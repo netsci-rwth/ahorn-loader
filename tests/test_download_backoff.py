@@ -1,5 +1,6 @@
 """Tests for retry/backoff behavior in download_dataset using httpx+httpx-retries."""
 
+import asyncio
 from pathlib import Path
 
 import httpx
@@ -15,7 +16,7 @@ import ahorn_loader.api as api
 def fake_dataset(monkeypatch: MonkeyPatch) -> None:
     """Patch load_dataset_data to avoid real network calls."""
 
-    def _fake_load_dataset_data(
+    async def _fake_load_dataset_data(
         slug: str, *, cache_lifetime: int | None = None
     ) -> api.DatasetDict:
         return {
@@ -55,11 +56,11 @@ def test_download_dataset_retries_on_429_with_retry_after(
     def fake_init(self, transport=None, retry=None):  # type: ignore[no-untyped-def]
         self.retry = retry or Retry(total=5, backoff_factor=2.0)
         self._sync_transport = mock_transport
-        self._async_transport = None
+        self._async_transport = mock_transport
 
     monkeypatch.setattr(RetryTransport, "__init__", fake_init)  # type: ignore[arg-type]
 
-    out_path = api.download_dataset("dummy-slug", tmp_path)
+    out_path = asyncio.run(api.download_dataset("dummy-slug", tmp_path))
 
     assert call_count["value"] == 2  # initial + one retry
     assert out_path.exists()
@@ -83,11 +84,11 @@ def test_download_dataset_retries_on_429_without_retry_after(
     def fake_init(self, transport=None, retry=None):  # type: ignore[no-untyped-def]
         self.retry = retry or Retry(total=5, backoff_factor=2.0)
         self._sync_transport = mock_transport
-        self._async_transport = None
+        self._async_transport = mock_transport
 
     monkeypatch.setattr(RetryTransport, "__init__", fake_init)  # type: ignore[arg-type]
 
-    out_path = api.download_dataset("dummy-slug", tmp_path)
+    out_path = asyncio.run(api.download_dataset("dummy-slug", tmp_path))
 
     assert call_count["value"] == 2
     assert out_path.exists()
@@ -114,12 +115,12 @@ def test_download_dataset_raises_after_exhausting_429_retries(
     def fake_init(self, transport=None, retry=None):  # type: ignore[no-untyped-def]
         self.retry = retry or Retry(total=5, backoff_factor=0.0)
         self._sync_transport = mock_transport
-        self._async_transport = None
+        self._async_transport = mock_transport
 
     monkeypatch.setattr(RetryTransport, "__init__", fake_init)  # type: ignore[arg-type]
 
     with pytest.raises(httpx.HTTPStatusError):
-        api.download_dataset("dummy-slug", tmp_path)
+        asyncio.run(api.download_dataset("dummy-slug", tmp_path))
 
     # 1 initial attempt + 5 retries
     assert call_count["value"] == 6
