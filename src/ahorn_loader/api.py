@@ -288,7 +288,7 @@ async def read_dataset(
 
     Returns
     -------
-    Context manager yielding an open file object (iterator over lines).
+    Async context manager yielding an open file object (iterator over lines).
 
     Raises
     ------
