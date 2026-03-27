@@ -1,5 +1,6 @@
 """Entry point for the ``ahorn-loader`` command-line application."""
 
+import asyncio
 from pathlib import Path
 from typing import Annotated
 
@@ -16,7 +17,7 @@ app = typer.Typer()
 def ls() -> None:
     """List available datasets in AHORN."""
     try:
-        datasets = load_datasets_data(cache_lifetime=3600)
+        datasets = asyncio.run(load_datasets_data(cache_lifetime=3600))
         if "error" in datasets:
             typer.echo(f"Error: {datasets['error']}")
             raise typer.Exit(code=1)
@@ -61,7 +62,7 @@ def download(
         The revision number to download. Defaults to the latest revision.
     """
     try:
-        download_dataset(name, folder, revision, cache_lifetime=3600)
+        asyncio.run(download_dataset(name, folder, revision, cache_lifetime=3600))
         typer.echo(f"Downloaded dataset to {folder.absolute()}")
     except Exception as e:
         typer.echo(f"Failed to download dataset: {e}")
