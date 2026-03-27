@@ -149,6 +149,11 @@ def get_dataset_url(
         not exist for the dataset.
     RuntimeError
         If the dataset does not contain the required attachment information.
+
+    Examples
+    --------
+    >>> str(get_dataset_url("karate-club", revision=2))
+    'https://zenodo.org/records/19236080/files/karate-club.txt?download=1'
     """
     data = load_dataset_data(slug, cache_lifetime=cache_lifetime)
 
@@ -291,10 +296,9 @@ def read_dataset(
 
     Examples
     --------
-    >>> import ahorn_loader
-    >>> with ahorn_loader.read_dataset("contact-high-school") as dataset:
-    >>>     for line in dataset:
-    >>>         ...
+    >>> with ahorn_loader.read_dataset("karate-club", revision=2) as dataset:
+    ...     next(dataset).strip()
+    '{"name": "karate-club", "format-version": "0.3", "revision": 2}'
     """
     download_url = get_dataset_url(slug, revision)
     filepath = get_cache_dir() / download_url.path.split("/")[-1]
@@ -312,7 +316,7 @@ def read_dataset(
 
 
 def validate_dataset(path: str | Path) -> bool:
-    """Validate whether a given file is a valid AHORN dataset.
+    r"""Validate whether a given file is a valid AHORN dataset.
 
     Validation errors are logged, but not raised as exceptions.
 
@@ -320,6 +324,20 @@ def validate_dataset(path: str | Path) -> bool:
     ----------
     path : str or pathlib.Path
         The path to the dataset file to validate.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> from tempfile import TemporaryDirectory
+    >>> with TemporaryDirectory() as tmp_dir:
+    ...     dataset_path = Path(tmp_dir) / "demo.txt"
+    ...     _ = dataset_path.write_text(
+    ...         '{"name": "demo", "revision": 1, "format-version": "0.1"}\n'
+    ...         '1 {"weight": 1.0}\n'
+    ...         '1,2 {"weight": 2.0}\n'
+    ...     )
+    ...     ahorn_loader.validate_dataset(dataset_path)
+    True
     """
     validator = Validator()
     return validator.validate(path)

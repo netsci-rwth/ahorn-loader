@@ -46,4 +46,4 @@ jobs:
           enable-cache: true
 
       - name: Run tests
-        run: uv run pytest tests
+        run: uv run pytest
