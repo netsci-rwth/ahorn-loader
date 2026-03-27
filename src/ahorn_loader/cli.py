@@ -1,92 +1,128 @@
 """Entry point for the ``ahorn-loader`` command-line application."""
 
-import asyncio
-from pathlib import Path
-from typing import Annotated
+from __future__ import annotations
 
-import typer
-from rich import print as rich_print
-from rich.table import Table
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, CliApp, CliPositionalArg, CliSubCommand
 
 from .api import download_dataset, load_datasets_data, validate_dataset
 
-app = typer.Typer()
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
-@app.command()
-def ls() -> None:
+def _render_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
+    """Render a simple plain-text table."""
+    if not all(len(row) == len(headers) for row in rows):
+        raise ValueError("Number of headers must match number of columns in rows.")
+
+    widths = [
+        max(len(header), *(len(row[index]) for row in rows))
+        for index, header in enumerate(headers)
+    ]
+
+    def format_row(row: Sequence[str]) -> str:
+        return "  ".join(value.ljust(widths[index]) for index, value in enumerate(row))
+
+    separator = "  ".join("-" * width for width in widths)
+    table_lines = [
+        format_row(headers),
+        separator,
+        *(format_row(row) for row in rows),
+    ]
+    return "\n".join(table_lines)
+
+
+class ListCommand(BaseModel):
     """List available datasets in AHORN."""
-    try:
-        datasets = asyncio.run(load_datasets_data(cache_lifetime=3600))
-        if "error" in datasets:
-            typer.echo(f"Error: {datasets['error']}")
-            raise typer.Exit(code=1)
-    except Exception as e:
-        print(f"Failed to load datasets: {e}")
-        raise typer.Exit(code=1) from e
 
-    table = Table(title="Available Datasets")
-    table.add_column("Slug", style="cyan")
-    table.add_column("Title", style="magenta")
-    table.add_column("Tags", style="green")
+    async def cli_cmd(self) -> None:
+        """Execute the ``ls`` command."""
+        try:
+            datasets = await load_datasets_data(cache_lifetime=3600)
+        except Exception as exc:
+            print(f"Failed to load datasets: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
 
-    for slug, details in datasets.items():
-        table.add_row(slug, details["title"], ", ".join(details["tags"]))
-    rich_print(table)
+        rows = [
+            (slug, details["title"], ", ".join(details["tags"]))
+            for slug, details in datasets.items()
+        ]
+        print(_render_table(("Slug", "Title", "Tags"), rows))
 
 
-@app.command()
-def download(
-    name: Annotated[str, typer.Argument(help="The name of the dataset to download.")],
-    folder: Annotated[
-        Path, typer.Argument(help="Folder where the dataset should be saved.")
-    ] = Path(),
-    revision: Annotated[
-        int | None,
-        typer.Option(
-            "--revision",
-            "-r",
-            help="Revision number to download (defaults to latest).",
-        ),
-    ] = None,
-) -> None:
-    """Download the specified dataset from AHORN.
+class DownloadCommand(BaseModel):
+    """Download a dataset from AHORN."""
 
-    Parameters
-    ----------
-    name : str
-        The name of the dataset to download.
-    folder : Path
-        The folder where the dataset should be saved. Defaults to the current directory.
-    revision : int, optional
-        The revision number to download. Defaults to the latest revision.
-    """
-    try:
-        asyncio.run(download_dataset(name, folder, revision, cache_lifetime=3600))
-        typer.echo(f"Downloaded dataset to {folder.absolute()}")
-    except Exception as e:
-        typer.echo(f"Failed to download dataset: {e}")
-        raise typer.Exit(code=1) from e
+    name: CliPositionalArg[str] = Field(
+        description="The name of the dataset to download."
+    )
+    folder: CliPositionalArg[Path] = Field(
+        default=Path(),
+        description="Folder where the dataset should be saved.",
+    )
+    revision: int | None = Field(
+        default=None,
+        description="Revision number to download (defaults to latest).",
+    )
+
+    async def cli_cmd(self) -> None:
+        """Execute the ``download`` command."""
+        try:
+            await download_dataset(
+                self.name,
+                self.folder,
+                self.revision,
+                cache_lifetime=3600,
+            )
+        except Exception as exc:
+            print(f"Failed to download dataset: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+
+        print(f"Downloaded dataset to {self.folder.absolute()}")
 
 
-@app.command()
-def validate(
-    path: Annotated[
-        Path, typer.Argument(help="The path to the dataset file to validate.")
-    ],
-) -> None:
-    """Validate whether a given file is a valid AHORN dataset.
+class ValidateCommand(BaseModel):
+    """Validate whether a given file is a valid AHORN dataset."""
 
-    Parameters
-    ----------
-    path : Path
-        The path to the dataset file to validate.
-    """
-    if validate_dataset(path):
-        typer.echo("Validation successful.")
-    else:
-        typer.echo("Validation failed.")
-        raise typer.Exit(code=1)
+    path: CliPositionalArg[Path] = Field(
+        description="The path to the dataset file to validate."
+    )
+
+    def cli_cmd(self) -> None:
+        """Execute the ``validate`` command."""
+        if validate_dataset(self.path):
+            print("Validation successful.")
+            return
+
+        print("Validation failed.")
+        raise SystemExit(1)
+
+
+class AhornLoaderCli(BaseSettings, cli_prog_name="ahorn-loader"):
+    """Command-line interface for the ``ahorn-loader`` package."""
+
+    ls: CliSubCommand[ListCommand]
+    download: CliSubCommand[DownloadCommand]
+    validate_cmd: CliSubCommand[ValidateCommand] = Field(alias="validate")
+
+    def cli_cmd(self) -> None:
+        """Execute the selected subcommand."""
+        CliApp.run_subcommand(self)
+
+
+def run_app(cli_args: list[str] | None = None) -> AhornLoaderCli:
+    """Run the CLI application and return the parsed settings model."""
+    return CliApp.run(AhornLoaderCli, cli_args=cli_args)
+
+
+def app() -> None:
+    """Console script entrypoint."""
+    run_app()
 
 
 if __name__ == "__main__":
