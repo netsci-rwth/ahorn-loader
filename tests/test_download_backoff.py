@@ -1,4 +1,4 @@
-"""Tests for retry/backoff behavior in download_dataset using httpx+httpx-retries."""
+"""Tests for retry/backoff behavior in download_dataset_async."""
 
 import asyncio
 from pathlib import Path
@@ -9,7 +9,7 @@ from httpx import MockTransport
 from httpx_retries import Retry, RetryTransport
 from pytest import MonkeyPatch
 
-import ahorn_loader.api as api
+import ahorn_loader.api_async as api_async
 
 
 @pytest.fixture()
@@ -18,7 +18,7 @@ def fake_dataset(monkeypatch: MonkeyPatch) -> None:
 
     async def _fake_load_dataset_data(
         slug: str, *, cache_lifetime: int | None = None
-    ) -> api.DatasetDict:
+    ) -> api_async.DatasetDict:
         return {
             "slug": slug,
             "title": "Test Dataset",
@@ -31,7 +31,11 @@ def fake_dataset(monkeypatch: MonkeyPatch) -> None:
             },
         }
 
-    monkeypatch.setattr(api, "load_dataset_data", _fake_load_dataset_data)
+    monkeypatch.setattr(
+        api_async,
+        "load_dataset_data_async",
+        _fake_load_dataset_data,
+    )
 
 
 def test_download_dataset_retries_on_429_with_retry_after(
@@ -60,7 +64,7 @@ def test_download_dataset_retries_on_429_with_retry_after(
 
     monkeypatch.setattr(RetryTransport, "__init__", fake_init)  # type: ignore[arg-type]
 
-    out_path = asyncio.run(api.download_dataset("dummy-slug", tmp_path))
+    out_path = asyncio.run(api_async.download_dataset_async("dummy-slug", tmp_path))
 
     assert call_count["value"] == 2  # initial + one retry
     assert out_path.exists()
@@ -88,7 +92,7 @@ def test_download_dataset_retries_on_429_without_retry_after(
 
     monkeypatch.setattr(RetryTransport, "__init__", fake_init)  # type: ignore[arg-type]
 
-    out_path = asyncio.run(api.download_dataset("dummy-slug", tmp_path))
+    out_path = asyncio.run(api_async.download_dataset_async("dummy-slug", tmp_path))
 
     assert call_count["value"] == 2
     assert out_path.exists()
@@ -120,7 +124,7 @@ def test_download_dataset_raises_after_exhausting_429_retries(
     monkeypatch.setattr(RetryTransport, "__init__", fake_init)  # type: ignore[arg-type]
 
     with pytest.raises(httpx.HTTPStatusError):
-        asyncio.run(api.download_dataset("dummy-slug", tmp_path))
+        asyncio.run(api_async.download_dataset_async("dummy-slug", tmp_path))
 
     # 1 initial attempt + 5 retries
     assert call_count["value"] == 6
