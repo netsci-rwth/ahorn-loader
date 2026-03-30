@@ -59,6 +59,25 @@ with ahorn_loader.read_dataset("dataset_name") as dataset:
 ahorn_loader.validate_dataset("path_to_dataset_file")
 ```
 
+`ahorn-loader` also provides an asynchronous API, which you can use for non-blocking contexts.
+Asynchronous functions are suffixed with `_async` and available for all operations.
+
+```python
+import asyncio
+import ahorn_loader
+
+
+async def main() -> None:
+    await ahorn_loader.download_dataset_async("dataset_name", "target_path")
+
+    async with ahorn_loader.read_dataset_async("dataset_name") as dataset:
+        for line in dataset:
+            ...
+
+
+asyncio.run(main())
+```
+
 ## Funding
 
 <img align="right" width="200" src="https://raw.githubusercontent.com/netsci-rwth/ahorn/main/public/images/erc_logo.png">

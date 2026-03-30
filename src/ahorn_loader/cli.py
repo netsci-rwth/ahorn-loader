@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, CliApp, CliPositionalArg, CliSubCommand
 
-from .api import download_dataset, load_datasets_data, validate_dataset
+from .api_async import download_dataset_async, load_datasets_data_async
+from .api_sync import validate_dataset
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -43,7 +44,7 @@ class ListCommand(BaseModel):
     async def cli_cmd(self) -> None:
         """Execute the ``ls`` command."""
         try:
-            datasets = await load_datasets_data(cache_lifetime=3600)
+            datasets = await load_datasets_data_async(cache_lifetime=3600)
         except Exception as exc:
             print(f"Failed to load datasets: {exc}", file=sys.stderr)
             raise SystemExit(1) from exc
@@ -73,7 +74,7 @@ class DownloadCommand(BaseModel):
     async def cli_cmd(self) -> None:
         """Execute the ``download`` command."""
         try:
-            await download_dataset(
+            await download_dataset_async(
                 self.name,
                 self.folder,
                 self.revision,
