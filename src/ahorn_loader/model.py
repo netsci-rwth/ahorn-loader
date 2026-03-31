@@ -6,8 +6,19 @@ models for individual pieces such as node and edge metadata.
 
 import datetime
 import re
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+
+
+def _timezone_aware_datetime_validator(
+    value: datetime.datetime,
+) -> datetime.datetime:
+    """Ensure timestamps include timezone information when provided."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("Timestamp must include timezone information.")
+
+    return value
 
 
 class NodeMetadata(BaseModel):
@@ -27,22 +38,10 @@ class NodeMetadata(BaseModel):
 
     year: int | None = Field(ge=1000, lt=9999, default=None)
     date: datetime.date | None = None
-    time: datetime.datetime | None = None
+    time: Annotated[
+        datetime.datetime | None, AfterValidator(_timezone_aware_datetime_validator)
+    ] = None
     weight: float | None = None
-
-    @field_validator("time")
-    @classmethod
-    def validate_time_timezone(
-        cls, value: datetime.datetime | None
-    ) -> datetime.datetime | None:
-        """Ensure timestamps include timezone information when provided."""
-        if value is None:
-            return value
-
-        if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("Timestamp must include timezone information.")
-
-        return value
 
     model_config = ConfigDict(extra="allow")
 
@@ -81,22 +80,10 @@ class EdgeMetadata(BaseModel):
 
     year: int | None = Field(ge=1000, lt=9999, default=None)
     date: datetime.date | None = None
-    time: datetime.datetime | None = None
+    time: Annotated[
+        datetime.datetime | None, AfterValidator(_timezone_aware_datetime_validator)
+    ] = None
     weight: float | None = None
-
-    @field_validator("time")
-    @classmethod
-    def validate_time_timezone(
-        cls, value: datetime.datetime | None
-    ) -> datetime.datetime | None:
-        """Ensure timestamps include timezone information when provided."""
-        if value is None:
-            return value
-
-        if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("Timestamp must include timezone information.")
-
-        return value
 
     model_config = ConfigDict(extra="allow")
 
