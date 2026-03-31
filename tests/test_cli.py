@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 
-from ahorn_loader.cli import run_app
+import pytest
+
+import ahorn_loader.cli as cli
+from ahorn_loader.cli import app
 
 
 @dataclass
@@ -24,7 +27,7 @@ def invoke_cli(*args: str) -> CliResult:
 
     try:
         with redirect_stdout(stdout), redirect_stderr(stderr):
-            run_app(list(args))
+            app(list(args))
     except SystemExit as exc:
         output = stdout.getvalue() + stderr.getvalue()
         if exc.code is None:
@@ -58,6 +61,23 @@ def test_ls_command() -> None:
     assert len(lines) > 5  # At least header + some datasets
 
 
+def test_ls_command_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 'ls' command should report loader failures clearly."""
+
+    async def fake_load_datasets_data_async(
+        *, cache_lifetime: int | None = None
+    ) -> dict[str, object]:
+        assert cache_lifetime == 3600
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli, "load_datasets_data_async", fake_load_datasets_data_async)
+
+    result = invoke_cli("ls")
+
+    assert result.exit_code == 1
+    assert "Failed to load datasets: boom" in result.output
+
+
 def test_download_command_failure() -> None:
     """Tests the 'download' command failure path of the CLI."""
     result = invoke_cli("download", "test_dataset")
@@ -82,3 +102,33 @@ def test_download_command_karate_club(tmp_path: Path) -> None:
             "format-version": "0.3",
             "revision": 2,
         }
+
+
+def test_validate_command_success(tmp_path: Path) -> None:
+    """The validate command should succeed for a valid dataset file."""
+    dataset_path = tmp_path / "demo.txt"
+    dataset_path.write_text(
+        '{"name": "demo", "revision": 1, "format-version": "0.1"}\n'
+        '1 {"weight": 1.0}\n'
+        '1,2 {"weight": 2.0}\n',
+        encoding="utf-8",
+    )
+
+    result = invoke_cli("validate", str(dataset_path))
+
+    assert result.exit_code == 0, result.output
+    assert "Validation successful." in result.output
+
+
+def test_validate_command_failure(tmp_path: Path) -> None:
+    """The validate command should fail for an invalid dataset file."""
+    dataset_path = tmp_path / "invalid.txt"
+    dataset_path.write_text(
+        '{"name": "demo", "format-version": "0.1"}\n1 {"weight": 1.0}\n',
+        encoding="utf-8",
+    )
+
+    result = invoke_cli("validate", str(dataset_path))
+
+    assert result.exit_code == 1
+    assert "Validation failed." in result.output
