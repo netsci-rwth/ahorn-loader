@@ -4,38 +4,13 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, CliApp, CliPositionalArg, CliSubCommand
 
 from .api_async import download_dataset_async, load_datasets_data_async
 from .api_sync import validate_dataset
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-
-def _render_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
-    """Render a simple plain-text table."""
-    if not all(len(row) == len(headers) for row in rows):
-        raise ValueError("Number of headers must match number of columns in rows.")
-
-    widths = [
-        max(len(header), *(len(row[index]) for row in rows))
-        for index, header in enumerate(headers)
-    ]
-
-    def format_row(row: Sequence[str]) -> str:
-        return "  ".join(value.ljust(widths[index]) for index, value in enumerate(row))
-
-    separator = "  ".join("-" * width for width in widths)
-    table_lines = [
-        format_row(headers),
-        separator,
-        *(format_row(row) for row in rows),
-    ]
-    return "\n".join(table_lines)
+from .utils.render import render_table
 
 
 class ListCommand(BaseModel):
@@ -53,7 +28,7 @@ class ListCommand(BaseModel):
             (slug, details["title"], ", ".join(details["tags"]))
             for slug, details in datasets.items()
         ]
-        print(_render_table(("Slug", "Title", "Tags"), rows))
+        print(render_table(("Slug", "Title", "Tags"), rows))
 
 
 class DownloadCommand(BaseModel):
@@ -116,15 +91,6 @@ class AhornLoaderCli(BaseSettings, cli_prog_name="ahorn-loader"):
         CliApp.run_subcommand(self)
 
 
-def run_app(cli_args: list[str] | None = None) -> AhornLoaderCli:
-    """Run the CLI application and return the parsed settings model."""
-    return CliApp.run(AhornLoaderCli, cli_args=cli_args)
-
-
-def app() -> None:
+def app(cli_args: list[str] | None = None) -> None:
     """Console script entrypoint."""
-    run_app()
-
-
-if __name__ == "__main__":
-    app()
+    CliApp.run(AhornLoaderCli, cli_args=cli_args)

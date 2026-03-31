@@ -226,11 +226,7 @@ class Validator:
 
         try:
             for line_number, line in enumerate(line_iterator, start=2):
-                stripped = line.strip()
-                if not stripped:
-                    continue
-
-                parts = stripped.split(maxsplit=1)
+                parts = line.split(maxsplit=1)
                 if len(parts) != 2:
                     self.logger.error(
                         "Invalid line format at line %d. Expected '<elements> <json-metadata>'.",

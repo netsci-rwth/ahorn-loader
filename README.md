@@ -5,7 +5,8 @@ Library and command-line application to interact with datasets in [AHORN](https:
 <div align="center">
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue)](https://www.python.org/)
-[![license](https://badgen.net/github/license/netsci-rwth/ahorn-loader)](https://github.com/netsci-rwth/ahorn-loader/blob/main/LICENSE)
+[![License](https://badgen.net/github/license/netsci-rwth/ahorn-loader)](https://github.com/netsci-rwth/ahorn-loader/blob/main/LICENSE)
+[![Codecov](https://codecov.io/gh/netsci-rwth/ahorn-loader/graph/badge.svg)](https://codecov.io/gh/netsci-rwth/ahorn-loader)
 
 </div>
 
