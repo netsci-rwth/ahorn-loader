@@ -1,5 +1,6 @@
 """Tests for dataset validator behavior and error handling."""
 
+import gzip
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,19 @@ def test_validate_accepts_valid_plain_text_dataset(tmp_path: Path) -> None:
         "\n",
         encoding="utf-8",
     )
+
+    assert Validator().validate(dataset_path)
+
+
+def test_validate_accepts_valid_gzip_dataset(tmp_path: Path) -> None:
+    """A well-formed gzip-compressed dataset passes validation."""
+    dataset_path = tmp_path / "demo.txt.gz"
+    with gzip.open(dataset_path, "wt", encoding="utf-8") as file_handle:
+        file_handle.write(
+            '{"name": "demo", "revision": 1, "format-version": "0.1"}\n'
+            '1 {"weight": 1.0}\n'
+            '1,2 {"weight": 2.0}\n'
+        )
 
     assert Validator().validate(dataset_path)
 
