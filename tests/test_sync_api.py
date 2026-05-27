@@ -56,6 +56,41 @@ def test_read_dataset_sync_reads_resolved_file(
         assert next(dataset).strip() == '{"name": "demo"}'
 
 
+def test_download_dataset_sync_forwards_format(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sync downloader should forward any requested dataset format."""
+    expected_path = tmp_path / "demo.graphml"
+
+    async def fake_download_dataset(
+        slug: str,
+        folder: Path | str,
+        revision: int | None = None,
+        *,
+        format: str = "ahorn",  # noqa: A002
+        cache_lifetime: int | None = None,
+    ) -> Path:
+        assert slug == "demo"
+        assert folder == tmp_path
+        assert revision == 3
+        assert format == "graphml"
+        assert cache_lifetime == 60
+        return expected_path
+
+    monkeypatch.setattr(api_sync, "download_dataset_async", fake_download_dataset)
+
+    assert (
+        api_sync.download_dataset(
+            "demo",
+            tmp_path,
+            revision=3,
+            format="graphml",
+            cache_lifetime=60,
+        )
+        == expected_path
+    )
+
+
 def test_sync_api_raises_inside_running_event_loop() -> None:
     """The sync wrappers should fail fast when called from async code."""
 

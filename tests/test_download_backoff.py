@@ -25,8 +25,10 @@ def fake_dataset(monkeypatch: MonkeyPatch) -> None:
             "tags": [],
             "attachments": {
                 "revision-1": {
-                    "url": "https://example.com/test.txt",
-                    "size": 4,
+                    "ahorn": {
+                        "url": "https://example.com/test.txt",
+                        "size": 4,
+                    },
                 }
             },
         }

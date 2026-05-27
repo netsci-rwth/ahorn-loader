@@ -25,8 +25,10 @@ def test_get_dataset_url_raises_when_dataset_has_no_revisions(
             "tags": [],
             "attachments": {
                 "thumbnail": {
-                    "url": "https://example.com/thumb.png",
-                    "size": 42,
+                    "ahorn": {
+                        "url": "https://example.com/thumb.txt",
+                        "size": 42,
+                    },
                 }
             },
         }
@@ -58,12 +60,16 @@ def test_get_dataset_url_raises_for_unknown_revision(
             "tags": [],
             "attachments": {
                 "revision-1": {
-                    "url": "https://example.com/revision-1.txt",
-                    "size": 10,
+                    "ahorn": {
+                        "url": "https://example.com/revision-1.txt",
+                        "size": 10,
+                    },
                 },
                 "revision-3": {
-                    "url": "https://example.com/revision-3.txt",
-                    "size": 30,
+                    "ahorn": {
+                        "url": "https://example.com/revision-3.txt",
+                        "size": 30,
+                    },
                 },
             },
         }
@@ -79,6 +85,73 @@ def test_get_dataset_url_raises_for_unknown_revision(
         match=r"does not have revision 2\. Available revisions: \[1, 3\]",
     ):
         asyncio.run(api_async.get_dataset_url_async("versioned-dataset", revision=2))
+
+
+def test_get_dataset_url_selects_requested_format(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The URL resolver should select any requested published format."""
+
+    async def fake_load_dataset_data(
+        slug: str, *, cache_lifetime: int | None = None
+    ) -> api_async.DatasetDict:
+        return {
+            "slug": slug,
+            "title": "Versioned Dataset",
+            "tags": [],
+            "attachments": {
+                "revision-1": {
+                    "ahorn": {"url": "https://example.com/revision-1.txt", "size": 10},
+                    "graphml": {
+                        "url": "https://example.com/revision-1.graphml",
+                        "size": 20,
+                    },
+                },
+            },
+        }
+
+    monkeypatch.setattr(
+        api_async,
+        "load_dataset_data_async",
+        fake_load_dataset_data,
+    )
+
+    assert str(asyncio.run(api_async.get_dataset_url_async("demo"))) == (
+        "https://example.com/revision-1.txt"
+    )
+    assert (
+        str(asyncio.run(api_async.get_dataset_url_async("demo", format="graphml")))
+        == "https://example.com/revision-1.graphml"
+    )
+
+
+def test_get_dataset_url_raises_for_missing_format(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Requesting an unpublished format should raise a helpful error."""
+
+    async def fake_load_dataset_data(
+        slug: str, *, cache_lifetime: int | None = None
+    ) -> api_async.DatasetDict:
+        return {
+            "slug": slug,
+            "title": "Versioned Dataset",
+            "tags": [],
+            "attachments": {
+                "revision-1": {
+                    "ahorn": {"url": "https://example.com/revision-1.txt", "size": 10},
+                },
+            },
+        }
+
+    monkeypatch.setattr(
+        api_async,
+        "load_dataset_data_async",
+        fake_load_dataset_data,
+    )
+
+    with pytest.raises(ValueError, match="does not provide format 'graphml'"):
+        asyncio.run(api_async.get_dataset_url_async("demo", format="graphml"))
 
 
 def test_read_dataset_async_reads_plain_text_dataset(

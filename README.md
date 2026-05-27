@@ -25,7 +25,7 @@ uvx ahorn-loader [command] [args]
 Commands include:
 
 - `ls`: List available datasets in AHORN.
-- `download`: Download a dataset from AHORN.
+- `download`: Download a dataset from AHORN. Use `--format` to specify the download format, if multiple are available.
 - `validate`: Validate a specific dataset file (e.g., before adding it to AHORN).
 
 To get a full help of available commands and options, run `ahorn-loader --help`.

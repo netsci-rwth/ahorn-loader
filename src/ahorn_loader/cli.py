@@ -1,14 +1,16 @@
 """Entry point for the ``ahorn-loader`` command-line application."""
 
-from __future__ import annotations
-
 import sys
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, CliApp, CliPositionalArg, CliSubCommand
 
-from .api_async import download_dataset_async, load_datasets_data_async
+from .api_async import (
+    DEFAULT_DATASET_FORMAT,
+    download_dataset_async,
+    load_datasets_data_async,
+)
 from .api_sync import validate_dataset
 from .utils.render import render_table
 
@@ -45,6 +47,10 @@ class DownloadCommand(BaseModel):
         default=None,
         description="Revision number to download (defaults to latest).",
     )
+    format: str = Field(
+        default=DEFAULT_DATASET_FORMAT,
+        description="Dataset format to download.",
+    )
 
     async def cli_cmd(self) -> None:
         """Execute the ``download`` command."""
@@ -53,6 +59,7 @@ class DownloadCommand(BaseModel):
                 self.name,
                 self.folder,
                 self.revision,
+                format=self.format,
                 cache_lifetime=3600,
             )
         except Exception as exc:
