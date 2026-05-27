@@ -23,6 +23,7 @@ __all__ = [
 ]
 
 DATASET_API_URL = "https://ahorn.rwth-aachen.de/api/datasets.json"
+DEFAULT_DATASET_FORMAT = "ahorn"
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,17 @@ class AttachmentDict(TypedDict):
     size: int
 
 
+DatasetFormat = str
+
+
+RevisionAttachmentDict = dict[DatasetFormat, AttachmentDict]
+
+
 class DatasetDict(TypedDict):
     slug: str
     title: str
     tags: list[str]
-    attachments: dict[str, AttachmentDict]
+    attachments: dict[str, RevisionAttachmentDict]
 
 
 class DatasetsDataDict(TypedDict):
@@ -90,7 +97,11 @@ async def load_dataset_data_async(
 
 
 async def get_dataset_url_async(
-    slug: str, revision: int | None = None, *, cache_lifetime: int | None = None
+    slug: str,
+    revision: int | None = None,
+    *,
+    format: DatasetFormat = DEFAULT_DATASET_FORMAT,  # noqa: A002
+    cache_lifetime: int | None = None,
 ) -> httpx.URL:
     """Get the download URL for a specific dataset by its slug.
 
@@ -127,7 +138,15 @@ async def get_dataset_url_async(
                 f"Available revisions: {available}"
             )
 
-    return httpx.URL(data["attachments"][revision_key]["url"])
+    available_formats = data["attachments"][revision_key]
+    if format not in available_formats:
+        raise ValueError(
+            f"Dataset '{slug}' revision {revision_key.removeprefix('revision-')} "
+            f"does not provide format '{format}'. "
+            f"Available formats: {sorted(available_formats)}"
+        )
+
+    return httpx.URL(available_formats[format]["url"])
 
 
 async def download_dataset_async(
@@ -135,6 +154,7 @@ async def download_dataset_async(
     folder: Path | str,
     revision: int | None = None,
     *,
+    format: DatasetFormat = DEFAULT_DATASET_FORMAT,  # noqa: A002
     cache_lifetime: int | None = None,
 ) -> Path:
     """Download a dataset by its slug to the specified folder."""
@@ -145,6 +165,7 @@ async def download_dataset_async(
     download_url = await get_dataset_url_async(
         slug,
         revision,
+        format=format,
         cache_lifetime=cache_lifetime,
     )
 

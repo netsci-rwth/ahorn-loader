@@ -7,6 +7,7 @@ import contextlib
 from typing import TYPE_CHECKING
 
 from .api_async import (
+    DEFAULT_DATASET_FORMAT,
     DatasetDict,
     _open_dataset_file,
     _resolve_dataset_filepath_async,
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
     from typing import Any
 
     import httpx
+
+    from .api_async import DatasetFormat
 
 __all__ = [
     "download_dataset",
@@ -78,7 +81,11 @@ def load_dataset_data(slug: str, *, cache_lifetime: int | None = None) -> Datase
 
 
 def get_dataset_url(
-    slug: str, revision: int | None = None, *, cache_lifetime: int | None = None
+    slug: str,
+    revision: int | None = None,
+    *,
+    format: DatasetFormat = DEFAULT_DATASET_FORMAT,  # noqa: A002
+    cache_lifetime: int | None = None,
 ) -> httpx.URL:
     """Get the download URL for a specific dataset synchronously.
 
@@ -91,6 +98,7 @@ def get_dataset_url(
         lambda: get_dataset_url_async(
             slug,
             revision,
+            format=format,
             cache_lifetime=cache_lifetime,
         ),
         api_name="get_dataset_url",
@@ -102,6 +110,7 @@ def download_dataset(
     folder: Path | str,
     revision: int | None = None,
     *,
+    format: DatasetFormat = DEFAULT_DATASET_FORMAT,  # noqa: A002
     cache_lifetime: int | None = None,
 ) -> Path:
     """Download a dataset by its slug to the specified folder synchronously.
@@ -118,6 +127,7 @@ def download_dataset(
             slug,
             folder,
             revision,
+            format=format,
             cache_lifetime=cache_lifetime,
         ),
         api_name="download_dataset",

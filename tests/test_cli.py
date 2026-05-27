@@ -85,6 +85,35 @@ def test_download_command_failure() -> None:
     assert "Failed to download dataset:" in result.output
 
 
+def test_download_command_forwards_format(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The download command should pass through any requested format."""
+
+    async def fake_download_dataset_async(
+        slug: str,
+        folder: Path,
+        revision: int | None = None,
+        *,
+        format: str = "ahorn",  # noqa: A002 - mirrors public API keyword.
+        cache_lifetime: int | None = None,
+    ) -> Path:
+        assert slug == "demo"
+        assert folder == tmp_path
+        assert revision is None
+        assert format == "graphml"
+        assert cache_lifetime == 3600
+        return tmp_path / "demo.graphml"
+
+    monkeypatch.setattr(cli, "download_dataset_async", fake_download_dataset_async)
+
+    result = invoke_cli("download", "demo", str(tmp_path), "--format", "graphml")
+
+    assert result.exit_code == 0, result.output
+    assert "Downloaded dataset to" in result.output
+
+
 def test_download_command_karate_club(tmp_path: Path) -> None:
     """Downloads the karate-club dataset via live API and verifies it is stored and valid."""
     result = invoke_cli("download", "karate-club", str(tmp_path))
