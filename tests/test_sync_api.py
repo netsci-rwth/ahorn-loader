@@ -12,7 +12,7 @@ def test_load_datasets_data_sync_runs_async_impl(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The sync wrapper should execute the async implementation."""
-    expected = {
+    expected: dict[str, api_sync.DatasetDict] = {
         "demo": {
             "slug": "demo",
             "title": "Demo Dataset",
