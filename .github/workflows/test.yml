@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mypy:
+  ty:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,8 +25,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Run mypy
-        run: uv run mypy src
+      - name: Run ty
+        run: uv run ty check --output-format github
 
   pytest:
     runs-on: ubuntu-latest

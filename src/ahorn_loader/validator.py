@@ -5,6 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from pathlib import Path
+from typing import override
 
 from pydantic import ValidationError
 
@@ -71,6 +72,7 @@ class PostModelRule(ABC):
 class FileExtensionRule(PreFlightRule):
     """Rule to validate file names."""
 
+    @override
     def validate(self, file_path: Path) -> bool:
         """
         Validate the file name against a specific pattern.
@@ -96,6 +98,7 @@ class FileExtensionRule(PreFlightRule):
 class FileExistsRule(PreFlightRule):
     """Rule to validate that the input path points to an existing file."""
 
+    @override
     def validate(self, file_path: Path) -> bool:
         """Validate that the file exists and is a regular file."""
         if not file_path.exists():
@@ -113,6 +116,7 @@ class FileExistsRule(PreFlightRule):
 class FileNameRule(PostModelRule):
     """Rule to validate file names based on dataset metadata."""
 
+    @override
     def validate(self, file_path: Path, dataset: Dataset) -> bool:
         """
         Validate the file name against the dataset metadata.
