@@ -4,7 +4,7 @@ This module provides Pydantic models for representing a dataset in AHORN, includ
 models for individual pieces such as node and edge metadata.
 """
 
-import datetime
+import datetime as dt
 import re
 from typing import Annotated
 
@@ -12,8 +12,8 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validat
 
 
 def _timezone_aware_datetime_validator(
-    value: datetime.datetime,
-) -> datetime.datetime:
+    value: dt.datetime,
+) -> dt.datetime:
     """Ensure timestamps include timezone information when provided."""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("Timestamp must include timezone information.")
@@ -37,9 +37,9 @@ class NodeMetadata(BaseModel):
     """
 
     year: int | None = Field(ge=1000, lt=9999, default=None)
-    date: datetime.date | None = None
+    date: dt.date | None = None
     time: Annotated[
-        datetime.datetime | None, AfterValidator(_timezone_aware_datetime_validator)
+        dt.datetime | None, AfterValidator(_timezone_aware_datetime_validator)
     ] = None
     weight: float | None = None
 
@@ -79,9 +79,9 @@ class EdgeMetadata(BaseModel):
     """
 
     year: int | None = Field(ge=1000, lt=9999, default=None)
-    date: datetime.date | None = None
+    date: dt.date | None = None
     time: Annotated[
-        datetime.datetime | None, AfterValidator(_timezone_aware_datetime_validator)
+        dt.datetime | None, AfterValidator(_timezone_aware_datetime_validator)
     ] = None
     weight: float | None = None
 
