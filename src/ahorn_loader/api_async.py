@@ -1,11 +1,11 @@
 """Asynchronous API to interact with the AHORN dataset service."""
 
 import contextlib
+import datetime as dt
 import gzip
 import json
 import logging
 from collections.abc import AsyncIterator, Iterator
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
 
@@ -57,10 +57,10 @@ async def load_datasets_data_async(
     """Load dataset data from the Ahorn API."""
     datasets_data_cache = get_cache_dir() / "datasets.json"
     if datasets_data_cache.exists() and cache_lifetime is not None:
-        cache_mtime = datetime.fromtimestamp(
-            datasets_data_cache.stat().st_mtime, tz=UTC
+        cache_mtime = dt.datetime.fromtimestamp(
+            datasets_data_cache.stat().st_mtime, tz=dt.UTC
         )
-        age_seconds = (datetime.now(tz=UTC) - cache_mtime).total_seconds()
+        age_seconds = (dt.datetime.now(tz=dt.UTC) - cache_mtime).total_seconds()
         if age_seconds < cache_lifetime:
             logger.info(
                 "Using cached datasets list (age=%.1fs, lifetime=%ss)",
